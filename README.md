@@ -60,7 +60,7 @@ git submodule update --init --recursive
 
 ```bash
 # Install rosdep if not already installed
-sudo apt install -y python3-rosdep
+sudo apt install -y python3-rosdep libignition-msgs8-dev
 
 # Initialize rosdep (only needed once)
 sudo rosdep init  # Skip if already initialized

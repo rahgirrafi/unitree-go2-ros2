@@ -30,8 +30,10 @@
         <sensor name="front_laser_sensor" type="gpu_lidar">
             <always_on>true</always_on>
             <visualize>false</visualize>
-            <pose>-0.032 0 0.171 0 0 0</pose>
+            <pose>0 0 0 0 0 0</pose>
             <update_rate>50</update_rate>
+            <topic>scan</topic>
+            <ignition_frame_id>front_laser</ignition_frame_id>
             <lidar>
             <scan>
                 <horizontal>
@@ -52,9 +54,6 @@
                 <stddev>0.01</stddev>
             </noise>
             </lidar>
-            <plugin filename="ignition-gazebo-sensors-system" name="ignition::gazebo::systems::Sensors">
-                <ignition_frame_id>front_laser</ignition_frame_id>
-            </plugin>
         </sensor>
     </gazebo>
 </robot>

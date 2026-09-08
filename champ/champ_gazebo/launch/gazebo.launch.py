@@ -62,6 +62,12 @@ def generate_launch_description():
         description="Absolute path to robot urdf file"
     )
 
+    declare_description_args = DeclareLaunchArgument(
+        name="description_args",
+        default_value="",
+        description="Extra xacro arguments for the description, e.g. 'laser:=true'",
+    )
+
     config_pkg_share = launch_ros.substitutions.FindPackageShare(
         package="champ_config"
     ).find("champ_config")
@@ -94,7 +100,7 @@ def generate_launch_description():
     )
 
     # Robot description
-    robot_description = {"robot_description": Command(["xacro ", LaunchConfiguration("description_path")])}
+    robot_description = {"robot_description": Command(["xacro ", LaunchConfiguration("description_path"), " ", LaunchConfiguration("description_args")])}
 
     # Robot state publisher (skip if already launched by parent launch file)
     robot_state_publisher = Node(
@@ -187,6 +193,7 @@ def generate_launch_description():
             declare_world_init_z,
             declare_world_init_heading,
             declare_description_path,
+            declare_description_args,
             ign_resource_path,
             start_ignition_cmd,
             start_ignition_headless_cmd,

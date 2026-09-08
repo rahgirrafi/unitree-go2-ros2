@@ -48,6 +48,12 @@ def generate_launch_description():
         description="Absolute path to robot urdf file",
     )
 
+    declare_description_args = DeclareLaunchArgument(
+        name="description_args",
+        default_value="",
+        description="Extra xacro arguments for the description, e.g. 'laser:=true'",
+    )
+
     declare_rviz_path = DeclareLaunchArgument(
         name="rviz_path",
         default_value=default_rviz_path,
@@ -151,6 +157,7 @@ def generate_launch_description():
         launch_arguments={
             "use_sim_time": LaunchConfiguration("use_sim_time"),
             "description_path": LaunchConfiguration("description_path"),
+            "description_args": LaunchConfiguration("description_args"),
         }.items(),
     )
 
@@ -165,7 +172,7 @@ def generate_launch_description():
             {"publish_joint_control": LaunchConfiguration("publish_joint_control")},
             {"publish_foot_contacts": LaunchConfiguration("publish_foot_contacts")},
             {"joint_controller_topic": LaunchConfiguration("joint_controller_topic")},
-            {"urdf": Command(['xacro ', LaunchConfiguration('description_path')])},
+            {"urdf": Command(['xacro ', LaunchConfiguration('description_path'), ' ', LaunchConfiguration('description_args')])},
             LaunchConfiguration('joints_map_path'),
             LaunchConfiguration('links_map_path'),
             LaunchConfiguration('gait_config_path'),
@@ -180,7 +187,7 @@ def generate_launch_description():
         parameters=[
             {"use_sim_time": LaunchConfiguration("use_sim_time")},
             {"orientation_from_imu": LaunchConfiguration("orientation_from_imu")},
-            {"urdf": Command(['xacro ', LaunchConfiguration('description_path')])},
+            {"urdf": Command(['xacro ', LaunchConfiguration('description_path'), ' ', LaunchConfiguration('description_args')])},
             LaunchConfiguration('joints_map_path'),
             LaunchConfiguration('links_map_path'),
             LaunchConfiguration('gait_config_path'),
@@ -237,6 +244,7 @@ def generate_launch_description():
         [
             declare_use_sim_time,
             declare_description_path,
+            declare_description_args,
             declare_rviz_path,
             declare_joints_map_path,
             declare_links_map_path,

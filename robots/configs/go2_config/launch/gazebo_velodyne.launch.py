@@ -64,6 +64,10 @@ def generate_launch_description():
     declare_gui = DeclareLaunchArgument(
         "gui", default_value="true", description="Use gui"
     )
+
+    declare_laser = DeclareLaunchArgument(
+        "laser", default_value="false", description="Use the Hokuyo 2D scanner (publishes /scan) instead of the Velodyne VLP-16"
+    )
     declare_world_init_x = DeclareLaunchArgument("world_init_x", default_value="0.0")
     declare_world_init_y = DeclareLaunchArgument("world_init_y", default_value="0.0")
     declare_world_init_z = DeclareLaunchArgument("world_init_z", default_value="20")
@@ -78,6 +82,8 @@ def generate_launch_description():
     )
 
     
+    description_args = ["laser:=", LaunchConfiguration("laser")]
+
     bringup_ld = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(
@@ -88,6 +94,7 @@ def generate_launch_description():
         ),
         launch_arguments={
             "description_path": default_model_path,
+            "description_args": description_args,
             "joints_map_path": joints_config,
             "links_map_path": links_config,
             "gait_config_path": gait_config,
@@ -121,6 +128,7 @@ def generate_launch_description():
             "world_init_heading": LaunchConfiguration("world_init_heading"),
             "headless": "False",
             "description_path": default_model_path,
+            "description_args": description_args,
             "skip_robot_state_publisher": "True",
         }.items(),
     )
@@ -135,6 +143,7 @@ def generate_launch_description():
             declare_ros_control_file,
             declare_gazebo_world,
             declare_gui,
+            declare_laser,
             declare_world_init_x,
             declare_world_init_y,
             declare_world_init_z,

@@ -79,13 +79,24 @@ colcon build
 ```
 ## 2. Quick Start
 
-You don't need a physical robot to run the following demos. All dependencies will be installed via rosdep.
+You don't need a physical robot to run the following demos. All dependencies will be
+installed via rosdep.
+
+> **Every terminal** you use must source the workspace first:
+> ```bash
+> source /opt/ros/humble/setup.bash
+> source <your_ws>/install/setup.bash
+> ```
 
 ### 2.1 Basic Simulation
 Run the Ignition Fortress simulation:
 ```bash
 ros2 launch go2_config gazebo.launch.py
 ```
+This starts Ignition, spawns the Go2, loads the `ros2_control` controllers, and brings up
+the CHAMP gait controller and state estimator. The robot stands up after a few seconds
+once the controllers are active.
+
 ![Go2 Gazebo Launch](.docs/gz.png)
 
 ### 2.2 Simulation with RViz
@@ -96,15 +107,17 @@ ros2 launch go2_config gazebo.launch.py rviz:=true
 ![Go2 Gazebo RViz Launch](.docs/gz_rviz.png)
 
 ### 2.3 Teleoperation
-Control the robot using keyboard:
+With the simulation already running, open a **second terminal**:
 ```bash
 ros2 run teleop_twist_keyboard teleop_twist_keyboard
 ```
+Keep this terminal focused while pressing keys. It publishes to `/cmd_vel`, which the
+gait controller converts into footstep trajectories.
 
 ### 2.4 Velodyne 3D LiDAR Simulation
 Run the simulation with Velodyne VLP-16 3D LiDAR:
 ```bash
-ros2 launch go2_config gazebo_velodyne.launch.py 
+ros2 launch go2_config gazebo_velodyne.launch.py
 ```
 ![Go2 Velodyne Gazebo Launch](.docs/velodyne.png)
 
@@ -120,17 +133,96 @@ ros2 launch go2_config gazebo_velodyne.launch.py rviz:=true
 
 ### 2.6 Hokuyo 2D LiDAR Configuration
 
-To use a 2D laser scanner instead of the 3D Velodyne LiDAR:
+The 2D laser scanner is enabled with the `laser:=true` launch argument -- no file editing
+or rebuild required.
 
-1. Open `robots/descriptions/go2_description/xacro/robot_VLP.xacro`
-2. Comment out: `<xacro:include filename="$(find go2_description)/xacro/velodyne.xacro"/>`
-3. Uncomment: `<xacro:include filename="$(find go2_description)/xacro/laser.xacro"/>`
-4. Rebuild the workspace
-
-Then launch:
+Add the Hokuyo to the standard simulation:
 ```bash
-ros2 launch go2_config gazebo_velodyne.launch.py rviz:=true
+ros2 launch go2_config gazebo.launch.py laser:=true
 ```
+
+Or use it *instead of* the Velodyne VLP-16:
+```bash
+ros2 launch go2_config gazebo_velodyne.launch.py laser:=true rviz:=true
+```
+
+The scanner publishes `sensor_msgs/LaserScan` on `/scan` in the `front_laser` frame,
+which is the topic the SLAM and Nav2 configs in `go2_config/config/autonomy/` expect.
+
+> **Note:** Set the LaserScan topic to `/scan` in RViz.
+
+Confirm scans are actually flowing before moving on to SLAM:
+```bash
+ros2 topic hz /scan          # expect ~50 Hz
+ros2 topic echo /scan --once # frame_id should be "front_laser"
+```
+
+### 2.7 SLAM (Mapping)
+
+SLAM needs the 2D scanner, so launch the simulation with `laser:=true`.
+
+**Terminal 1** -- simulation:
+```bash
+ros2 launch go2_config gazebo.launch.py laser:=true
+```
+
+**Terminal 2** -- slam_toolbox:
+```bash
+ros2 launch go2_config slam.launch.py sim:=true rviz:=true
+```
+
+**Terminal 3** -- drive the robot around to build the map:
+```bash
+ros2 run teleop_twist_keyboard teleop_twist_keyboard
+```
+
+Save the map when you are happy with it. `navigate.launch.py` loads
+`go2_config/maps/map.yaml` by default, so overwrite that one:
+```bash
+ros2 run nav2_map_server map_saver_cli \
+  -f <your_ws>/src/unitree-go2-ros2/robots/configs/go2_config/maps/map
+```
+
+> **Note:** That writes into `src/`, so run `colcon build` again for the new map to reach
+> the install space. To skip the rebuild, either save straight into
+> `<your_ws>/install/go2_config/share/go2_config/maps/map`, or pass the map explicitly:
+> `ros2 launch go2_config navigate.launch.py sim:=true map:=/absolute/path/to/map.yaml`
+
+> **Note:** `sim:=true` sets `use_sim_time` for the SLAM stack. Omitting it against a
+> simulated robot makes scan matching fail, because the timestamps come from `/clock`.
+
+### 2.8 Autonomous Navigation
+
+Uses the map saved in the previous step.
+
+**Terminal 1** -- simulation:
+```bash
+ros2 launch go2_config gazebo.launch.py laser:=true
+```
+
+**Terminal 2** -- Nav2:
+```bash
+ros2 launch go2_config navigate.launch.py sim:=true rviz:=true
+```
+
+In RViz, set the robot's starting pose with **2D Pose Estimate**, then send it somewhere
+with **2D Goal Pose**.
+
+### 2.9 Launch Argument Reference
+
+| Argument | Default | Applies to | Description |
+|----------|---------|------------|-------------|
+| `laser` | `false` | `gazebo`, `gazebo_velodyne`, `bringup` | Mount the Hokuyo 2D scanner and publish `/scan`. On `gazebo_velodyne` it *replaces* the VLP-16. |
+| `rviz` | `false` | all | Launch RViz alongside the stack |
+| `sim` | `false` | `slam`, `navigate`, `bringup` | Use `/clock` simulation time. Set `true` whenever Gazebo is running. |
+| `world` | `default.sdf` | `gazebo`, `gazebo_velodyne` | World file to load (see `go2_config/worlds/`) |
+| `world_init_x/y/z` | `0.0`/`0.0`/`0.275` | `gazebo`, `gazebo_velodyne` | Robot spawn pose |
+| `headless` | `False` | `gazebo`, `gazebo_velodyne` | Run Ignition without the GUI |
+| `hardware_connected` | `false` | `bringup` | Set `true` when running against the physical robot |
+
+`slam.launch.py` and `navigate.launch.py` take no `laser` argument -- they do not build a
+robot description, they only consume `/scan` from whichever simulation or robot is already
+running.
 
 ## 3. Tuning Gait Parameters
 

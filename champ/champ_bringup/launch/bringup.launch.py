@@ -17,7 +17,7 @@ from launch.event_handlers.on_process_exit import OnProcessExit
 from launch.event_handlers.on_execution_complete import OnExecutionComplete
 from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import Command, LaunchConfiguration
+from launch.substitutions import Command, LaunchConfiguration, PythonExpression
 
 
 def generate_launch_description():
@@ -106,6 +106,15 @@ def generate_launch_description():
         "gazebo", default_value="false", description="If in gazebo"
     )
 
+    declare_controller = DeclareLaunchArgument(
+        "controller",
+        default_value="champ",
+        description="Locomotion controller: 'champ' runs the CHAMP gait controller; "
+                    "'model' leaves joint commands to an external RL policy node. The "
+                    "state estimator and EKFs run either way, so odom/TF stay available "
+                    "to SLAM and Nav2.",
+    )
+
     declare_joint_controller_topic = DeclareLaunchArgument(
         "joint_controller_topic",
         default_value="joint_group_effort_controller/joint_trajectory",
@@ -178,6 +187,9 @@ def generate_launch_description():
             LaunchConfiguration('gait_config_path'),
         ],
         remappings=[("/cmd_vel/smooth", "/cmd_vel")],
+        condition=IfCondition(
+            PythonExpression(["'", LaunchConfiguration("controller"), "' == 'champ'"])
+        ),
     )
 
     state_estimator_node = Node(
@@ -256,6 +268,7 @@ def generate_launch_description():
             declare_base_link_frame,
             declare_lite,
             declare_gazebo,
+            declare_controller,
             declare_joint_controller_topic,
             declare_hardware_connected,
             declare_publish_joint_control,

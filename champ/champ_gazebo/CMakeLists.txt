@@ -27,6 +27,12 @@ install(PROGRAMS
   DESTINATION bin
 )
 
+# Replaces the disabled Gazebo Classic contact_sensor node below.
+install(PROGRAMS
+  scripts/foot_contacts_relay.py
+  DESTINATION lib/${PROJECT_NAME}
+)
+
 include_directories(
   include
   ${champ_INCLUDE_DIRS}

@@ -1,5 +1,7 @@
 import os
 
+import yaml
+
 import launch_ros
 from ament_index_python.packages import get_package_share_directory
 from launch_ros.actions import Node
@@ -13,7 +15,7 @@ from launch.actions import (
 )
 from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import Command, LaunchConfiguration
+from launch.substitutions import Command, LaunchConfiguration, PythonExpression
 
 
 def generate_launch_description():
@@ -34,6 +36,12 @@ def generate_launch_description():
     )
     gait_config = os.path.join(config_pkg_share, "config/gait/gait.yaml")
     links_config = os.path.join(config_pkg_share, "config/links/links.yaml")
+    rl_config = os.path.join(config_pkg_share, "config/rl/policy.yaml")
+
+    # The checkpoint lives in the RL config; read it here so it can also be overridden
+    # from the command line without duplicating the default in two places.
+    with open(rl_config) as f:
+        default_checkpoint = yaml.safe_load(f)["rl_policy_node"]["ros__parameters"]["checkpoint"]
     default_model_path = os.path.join(descr_pkg_share, "xacro/robot_VLP.xacro")
     # Use SDF world file for Ignition Fortress
     default_world_path = os.path.join(config_pkg_share, "worlds/default.sdf")
@@ -59,6 +67,18 @@ def generate_launch_description():
     )
     declare_gazebo_world = DeclareLaunchArgument(
         "world", default_value=default_world_path, description="Gazebo world name"
+    )
+
+    declare_controller = DeclareLaunchArgument(
+        "controller",
+        default_value="champ",
+        description="Locomotion controller: 'champ' for the CHAMP gait controller, "
+                    "'model' for the IsaacLab-trained RL policy",
+    )
+    declare_checkpoint = DeclareLaunchArgument(
+        "checkpoint",
+        default_value=default_checkpoint,
+        description="rsl_rl checkpoint to run when controller:=model",
     )
 
     declare_gui = DeclareLaunchArgument(
@@ -107,6 +127,7 @@ def generate_launch_description():
             "hardware_connected": "false",
             "publish_foot_contacts": "false",
             "close_loop_odom": "true",
+            "controller": LaunchConfiguration("controller"),
         }.items(),
     )
 
@@ -130,7 +151,26 @@ def generate_launch_description():
             "description_path": default_model_path,
             "description_args": description_args,
             "skip_robot_state_publisher": "True",
+            "controller": LaunchConfiguration("controller"),
         }.items(),
+    )
+
+    # Replaces the CHAMP gait controller when controller:=model. champ_bringup keeps the
+    # state estimator and EKFs running either way, so /odom, TF, SLAM and Nav2 are
+    # unaffected by the switch.
+    rl_policy_node = Node(
+        package="go2_config",
+        executable="rl_policy_node.py",
+        name="rl_policy_node",
+        output="screen",
+        parameters=[
+            rl_config,
+            {"use_sim_time": LaunchConfiguration("use_sim_time")},
+            {"checkpoint": LaunchConfiguration("checkpoint")},
+        ],
+        condition=IfCondition(
+            PythonExpression(["'", LaunchConfiguration("controller"), "' == 'model'"])
+        ),
     )
 
     return LaunchDescription(
@@ -142,6 +182,8 @@ def generate_launch_description():
             declare_lite,
             declare_ros_control_file,
             declare_gazebo_world,
+            declare_controller,
+            declare_checkpoint,
             declare_gui,
             declare_laser,
             declare_world_init_x,
@@ -149,7 +191,8 @@ def generate_launch_description():
             declare_world_init_z,
             declare_world_init_heading,
             bringup_ld,
-            gazebo_ld
+            gazebo_ld,
+            rl_policy_node,
 
         ]
     )

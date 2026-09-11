@@ -208,6 +208,21 @@
             </joint>
         </ros2_control> 
 
+        <!-- Foot contact sensor.
+             sdformat lumps the fixed-joint foot link into the lower leg, so the
+             sensor lives on ${name}_lower_leg_link and references the lumped
+             foot collision. champ's state estimator needs these contacts to
+             produce leg odometry; without them /odom never leaves the origin. -->
+        <gazebo reference="${name}_lower_leg_link">
+            <sensor name="${name}_foot_contact" type="contact">
+                <always_on>true</always_on>
+                <update_rate>50</update_rate>
+                <contact>
+                    <collision>${name}_lower_leg_link_fixed_joint_lump__${name}_foot_link_collision_1</collision>
+                </contact>
+            </sensor>
+        </gazebo>
+
         <!-- <xacro:leg_transmission name="${name}"/> -->
 
     </xacro:macro>

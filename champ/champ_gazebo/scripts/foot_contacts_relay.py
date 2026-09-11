@@ -33,6 +33,7 @@ which registers its legs in that order.
 
 import rclpy
 from rclpy.node import Node
+from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
 
 from champ_msgs.msg import ContactsStamped
 from ros_gz_interfaces.msg import Contacts
@@ -63,10 +64,20 @@ class FootContactsRelay(Node):
         self.in_contact = [False] * len(LEG_ORDER)
         self.last_stamp = [None] * len(LEG_ORDER)
 
+        # Ignition Fortress's Contact system ignores the sensor's <update_rate> and
+        # publishes every physics step -- ~1 kHz per foot, ~4000 msg/s in total. A
+        # reliable, depth-10 subscription makes this node queue and deserialise all of
+        # it, which costs a full CPU core and starves the EKF enough to stall TF. Only
+        # the newest sample per foot matters here, so let the middleware drop the rest.
+        contact_qos = QoSProfile(
+            reliability=ReliabilityPolicy.BEST_EFFORT,
+            history=HistoryPolicy.KEEP_LAST,
+            depth=1,
+        )
         for i, topic in enumerate(topics):
             self.create_subscription(
                 Contacts, topic,
-                lambda msg, idx=i: self.contact_callback(msg, idx), 10)
+                lambda msg, idx=i: self.contact_callback(msg, idx), contact_qos)
             self.get_logger().info('%s foot <- %s' % (LEG_ORDER[i], topic))
 
         self.publisher = self.create_publisher(ContactsStamped, 'foot_contacts', 10)

@@ -66,7 +66,15 @@ def generate_launch_description():
         description="Ros control config path",
     )
     declare_gazebo_world = DeclareLaunchArgument(
-        "world", default_value=default_world_path, description="Gazebo world name"
+        "world", default_value=default_world_path,
+        description="Absolute path to the Ignition world (.sdf) to load",
+    )
+    # Ignition scopes sensor topics by the <world name=...> inside the world file, so the
+    # IMU and foot-contact bridges have to be told what it is. Loading a world whose name
+    # is not "default" without setting this leaves those topics unbridged and silent.
+    declare_world_name = DeclareLaunchArgument(
+        "world_name", default_value="default",
+        description="The <world name=...> declared inside the world file",
     )
 
     declare_controller = DeclareLaunchArgument(
@@ -79,6 +87,12 @@ def generate_launch_description():
         "checkpoint",
         default_value=default_checkpoint,
         description="rsl_rl checkpoint to run when controller:=model",
+    )
+
+    declare_headless = DeclareLaunchArgument(
+        "headless", default_value="False",
+        description="Run Ignition without its GUI. Worth using for SLAM/Nav2 runs: the "
+                    "GUI costs more CPU than the physics does.",
     )
 
     declare_gui = DeclareLaunchArgument(
@@ -143,11 +157,12 @@ def generate_launch_description():
             "use_sim_time": LaunchConfiguration("use_sim_time"),
             "robot_name": LaunchConfiguration("robot_name"),
             "world": LaunchConfiguration("world"),
+            "world_name": LaunchConfiguration("world_name"),
             "world_init_x": LaunchConfiguration("world_init_x"),
             "world_init_y": LaunchConfiguration("world_init_y"),
             "world_init_z": LaunchConfiguration("world_init_z"),
             "world_init_heading": LaunchConfiguration("world_init_heading"),
-            "headless": "False",
+            "headless": LaunchConfiguration("headless"),
             "description_path": default_model_path,
             "description_args": description_args,
             "skip_robot_state_publisher": "True",
@@ -182,8 +197,10 @@ def generate_launch_description():
             declare_lite,
             declare_ros_control_file,
             declare_gazebo_world,
+            declare_world_name,
             declare_controller,
             declare_checkpoint,
+            declare_headless,
             declare_gui,
             declare_laser,
             declare_world_init_x,
